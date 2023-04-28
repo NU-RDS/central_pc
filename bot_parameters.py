@@ -42,3 +42,7 @@ Slist = np.array([[1, 0, 0,      0, 1,     0],
                   [0, 1, 0, -0.089, 0,     0],
                   [0, 1, 0, -0.089, 0,     0]]).T
 #screw axis in space frame
+
+#cutoffs for linear and rotational error for Numerical Inverse Kinematics 
+eomg = 0.01
+ev = 0.001

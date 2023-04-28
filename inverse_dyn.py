@@ -5,8 +5,9 @@ def InverseDynamics(thetalist, g, Force, Mlist, Glist, Slist):
     """Computes inverse dynamics in the space frame for an open chain robot
 
     :param thetalist: n-vector of joint variables
-    :param dthetalist: n-vector of joint rates
-    :param ddthetalist: n-vector of joint accelerations
+        [removed from MR code:]
+        :param dthetalist: n-vector of joint rates
+        :param ddthetalist: n-vector of joint accelerations
     :param g: Gravity vector g
     :param Ftip: Spatial force applied by the end-effector expressed in frame
                  {n+1}

@@ -428,3 +428,24 @@ def FKinSpace(M, Slist, thetalist):
         T = np.dot(MatrixExp6(VecTose3(np.array(Slist)[:, i] \
                                        * thetalist[i])), T)
     return T
+
+def RpToTrans(R, p):
+    """Converts a rotation matrix and a position vector into homogeneous
+    transformation matrix
+
+    :param R: A 3x3 rotation matrix
+    :param p: A 3-vector
+    :return: A homogeneous transformation matrix corresponding to the inputs
+
+    Example Input:
+        R = np.array([[1, 0,  0],
+                      [0, 0, -1],
+                      [0, 1,  0]])
+        p = np.array([1, 2, 5])
+    Output:
+        np.array([[1, 0,  0, 1],
+                  [0, 0, -1, 2],
+                  [0, 1,  0, 5],
+                  [0, 0,  0, 1]])
+    """
+    return np.r_[np.c_[R, p], [[0, 0, 0, 1]]]
