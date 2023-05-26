@@ -1,2 +1,0 @@
-# EdWARD Control
-
