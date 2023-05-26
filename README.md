@@ -1,2 +1,4 @@
-# central_pc
-RDS 5DOF Robot Arm - Central PC Python code
+# EdWARD Central PC
+*EdWARD's Brain*
+
+EdWARD 5DOF Robot Arm - Central PC
