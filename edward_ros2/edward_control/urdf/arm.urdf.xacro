@@ -1,0 +1,331 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="https://www.ros.org/wiki/xacro" name="robot_arm">
+  
+  <!-- load yaml parameters file -->
+  <xacro:property name="yaml_file" value="$(find edward_control)/config/config.yaml" />
+  <xacro:property name="params" value="${xacro.load_yaml(yaml_file)}"/>
+
+  <!-- load macros  -->
+  <xacro:include filename="$(find edward_control)/urdf/macros.xacro"/>
+  
+  <!-- define some parameters/variables -->
+  <xacro:property name="table_height" value="0.75"/>
+  <xacro:property name="link_radius" value="${params['/**']['ros__parameters']['link_radius']}"/>
+  <xacro:property name="link_width" value="${params['/**']['ros__parameters']['link_width']}"/>
+  <xacro:property name="L1" value="${params['/**']['ros__parameters']['L1']}"/>
+  <xacro:property name="L2" value="${params['/**']['ros__parameters']['L2']}"/>
+  <xacro:property name="L3" value="${params['/**']['ros__parameters']['L3']}"/>
+  <xacro:property name="L4" value="${params['/**']['ros__parameters']['L4']}"/>
+  <xacro:property name="W1" value="${params['/**']['ros__parameters']['W1']}"/>
+  <xacro:property name="default_mass" value="0.3"/>
+  <xacro:property name="joint_damping" value="0.7"/>
+  
+
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+  <link name="world"/>
+  
+  <joint name="world_base_fixed" type="fixed">
+    <origin xyz="0 0 ${table_height}"/>
+    <parent link="world"/>
+    <child link="base_link"/>
+  </joint>
+  
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.15 0.15 0.15"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.15 0.15 0.15"/>
+      </geometry>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+  
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+  <joint name="joint1" type="continuous">
+    <axis xyz="1 0 0"/>
+    <origin xyz="${link_width/2+0.15/2} 0 0"/>
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <dynamics damping="${joint_damping}"/>
+  </joint>
+
+  <link name="link1">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+
+  <joint name="joint2" type="continuous">
+    <axis xyz="0 -1 0"/>
+    <origin xyz="${L1} ${W1} 0"/>
+    <parent link="link1"/>
+    <child link="link2"/>
+    <dynamics damping="${joint_damping}"/>
+  </joint>
+
+  <link name="link2">
+    <visual>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+  <joint name="bone_joint12" type="fixed">
+    <axis xyz="0 0 1"/>
+    <origin xyz="${L1/2} 0 0"/>
+    <parent link="link1"/>
+    <child link="bone12"/>
+  </joint>
+
+  <link name="bone12">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L1}"/>
+      </geometry>
+      <material name="purple"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L1}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+
+  <joint name="joint3" type="continuous">
+    <axis xyz="0 0 1"/>
+    <origin xyz="${L2} ${-W1} 0" rpy="0 ${pi/2} 0"/>
+    <parent link="link2"/>
+    <child link="link3"/>
+    <dynamics damping="${joint_damping}"/>
+  </joint>
+
+  <link name="link3">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+  <joint name="bone_joint23" type="fixed">
+    <axis xyz="0 0 1"/>
+    <origin xyz="${L2/2} ${-W1} 0"/>
+    <parent link="link2"/>
+    <child link="bone23"/>
+  </joint>
+
+  <link name="bone23">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L2}"/>
+      </geometry>
+      <material name="purple"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L2}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+
+  <joint name="joint4" type="continuous">
+    <axis xyz="-1 0 0"/>
+    <origin xyz="0 0 ${L3}"/>
+    <parent link="link3"/>
+    <child link="link4"/>
+    <dynamics damping="${joint_damping}"/>
+  </joint>
+
+  <link name="link4">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+  <joint name="bone_joint34" type="fixed">
+    <axis xyz="0 1 0"/>
+    <origin xyz="0 0 ${L3/2}"/>
+    <parent link="link3"/>
+    <child link="bone34"/>
+  </joint>
+
+  <link name="bone34">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L3}"/>
+      </geometry>
+      <material name="purple"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L3}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+
+  <joint name="joint5" type="continuous">
+    <axis xyz="0 0 1"/>
+    <origin xyz="0 0 ${L4}"/>
+    <parent link="link4"/>
+    <child link="link5"/>
+    <dynamics damping="${joint_damping}"/>
+  </joint>
+
+  <link name="link5">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_radius}" length="${link_width}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+  <joint name="bone_joint45" type="fixed">
+    <axis xyz="0 0 1"/>
+    <origin xyz="0 0 ${L4/2}"/>
+    <parent link="link4"/>
+    <child link="bone45"/>
+  </joint>
+
+  <link name="bone45">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L4}"/>
+      </geometry>
+      <material name="purple"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${link_width/2}" length="${L4}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+
+<!-- +++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+
+  <joint name="EE_joint" type="fixed">
+    <axis xyz="1 0 0"/>
+    <origin xyz="0 0 ${link_radius/2 + link_width/2}"/>
+    <parent link="link5"/>
+    <child link="EE"/>
+  </joint>
+
+  <link name="EE">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <box size="${link_radius} ${link_radius} ${link_radius}"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry>
+        <box size="${link_radius} ${link_radius} ${link_radius}"/>
+      </geometry>
+      <contact_coefficients mu="0.2" kp="1000.0" kd="1.0"/>
+    </collision>
+    <xacro:default_inertia mass="${default_mass}"/>
+  </link>
+
+</robot>
+
+
+
+
+
