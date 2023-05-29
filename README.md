@@ -4,7 +4,12 @@
 A ROS2 interface for controlling the EdWARD 5-DoF robot arm
 
 ## Quickstart
-1. Clone the repository into the source space of your ROS2 workspace 
+1. Clone the repository into the source space of your ROS2 workspace
+```
+git clone https://github.com/NU-RDS/central_pc.git
+cd central_pc
+cp -r edward_control/ edward_interfaces/ simple_vr_driver/ ~/ros2_ws/src/
+```
 2. Build and source the packages
 ```
 colcon build
