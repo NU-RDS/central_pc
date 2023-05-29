@@ -221,16 +221,19 @@ class EdwardControl(Node):
         # Extract rotation matrix and position vector from tf matrix
         R_mr, pvec = mr.TransToRp(T_vr)
         R = Rotation.from_matrix(R_mr).as_euler("xyz")
-        self.get_logger().info(f"R = {[i*180.0/np.pi for i in list(R)]}")
-        self.get_logger().info(f"p = {list(pvec)}")
+        #  self.get_logger().info(f"R = {[i*180.0/np.pi for i in list(R)]}")
+        #  self.get_logger().info(f"p = {list(pvec)}")
 
         # Solve IK
-        #  t0 = time.monotonic_ns()
-        #  res = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=0.1, ev=0.1)
-        #  t_elapsed = time.monotonic_ns() - t0
-        #  self.get_logger().info(f"{res[1] - round(t_elapsed*1e-9,4)}")
-        #  if res[1]:
-            #  self.joint_states = list(res[0])
+        if self.enable_tracking:
+            t0 = time.monotonic_ns()
+            res = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=0.1, ev=0.1)
+            t_elapsed = time.monotonic_ns() - t0
+            self.get_logger().info(f"{res[1]}, {round(t_elapsed*1e-9,4)} sec")
+            if res[1]:
+                self.joint_states = list(res[0])
+                self.joint_states[1] = -self.joint_states[1]
+                self.get_logger().info(f"angle = {self.joint_states}")
 
 
     def csv_callback(self, request, response):
@@ -263,6 +266,8 @@ class EdwardControl(Node):
             # set the zero to the current tf if the button is clicked
             if self.zero:
                 # TODO: probably just do q0 = q, p0 = p
+                #  q0 = q.copy()
+                #  p0 = p.copy()
                 self.q0 = np.array([
                     t.transform.rotation.x,
                     t.transform.rotation.y,
