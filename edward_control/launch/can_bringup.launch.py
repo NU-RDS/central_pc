@@ -19,6 +19,7 @@ def generate_launch_description():
 
     return LaunchDescription([
 
+        # TODO: add commands to sudoers and get rid of sudo here
         ExecuteProcess(
             cmd=['sudo', 'bash', script_path],
             output='screen'

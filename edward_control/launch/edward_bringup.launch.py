@@ -15,21 +15,21 @@ def generate_launch_description():
     return LaunchDescription([
 
         DeclareLaunchArgument(
-            "use_jsp_gui",
-            default_value="false",
-            description="Choose whether to use the joint state publisher gui"
+            "use_vr",
+            default_value="false", # TODO: Probably default to True
+            description="Choose to use the VR controller"
         ),
 
         DeclareLaunchArgument(
-            "use_can",
+            "use_can", # TODO: maybe change to 'robot'='real' or 'sim'
             default_value="false", # TODO: default to true after testing
-            description="Whether or not to enable CAN to USB"
+            description="Choose to enable CAN to USB"
         ),
 
         DeclareLaunchArgument(
             "use_rviz",
             default_value="true",
-            description="Choose whether to open RVIZ"
+            description="Choose to open RVIZ"
         ),
 
         # Bring up CAN to USB
@@ -42,21 +42,21 @@ def generate_launch_description():
             condition = LaunchConfigurationEquals("use_can", "true"),
         ),
 
-        # start JSP GUI if requested
-        Node (
-            package="joint_state_publisher_gui",
-            executable="joint_state_publisher_gui",
-            condition = LaunchConfigurationEquals("use_jsp_gui","true")
-        ),
-
         # state edward_control node
         Node (
             package=package_name,
             executable="edward_control",
             parameters=[{
-                'use_jsp_gui' : LaunchConfiguration('use_jsp_gui'),
+                #  'use_jsp_gui' : LaunchConfiguration('use_jsp_gui'),
                 'use_can' : LaunchConfiguration('use_can')
             }]
+        ),
+
+        # start VR publisher node
+        Node (
+            package="simple_vr_driver",
+            executable="VR_publisher",
+            condition=LaunchConfigurationEquals("use_vr", "true")
         ),
 
         # run robot state publisher with robot description defined by the urdf
