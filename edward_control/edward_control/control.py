@@ -26,42 +26,42 @@ LOG = False     # TODO: make this a parameter to the node
 FREQ: int = 100 # TODO: make this a parameter to the node
 
 
-def send_angle_cmd(joint_states):
+def send_can_cmd(angles, torques):
     '''
-    sends commanded joint states over CAN
+    Sends requested angles and torques on the CAN bus
+
+    Args:
+        angles: length 5 array of commanded angles
+        torques: length 5 array of commanded torque offsets
     '''
 
-    #TODO TEST
+    #TODO this has only been tested outside of the ROS node
 
     main_angle_cmd_msg = db.get_message_by_name("Main_Angle_Command")
+    main_torque_offset_msg = db.get_message_by_name("Main_Torque_Offset")
 
     main_angle_cmd_data = main_angle_cmd_msg.encode({
-        "Angle_Command_0": joint_states[0],
-        "Angle_Command_1": joint_states[1],
-        "Angle_Command_2": joint_states[2],
-        "Angle_Command_3": joint_states[3],
-        "Angle_Command_4": joint_states[4]
+        "Angle_Command_0": angles[0],
+        "Angle_Command_1": angles[1],
+        "Angle_Command_2": angles[2],
+        "Angle_Command_3": angles[3],
+        "Angle_Command_4": angles[4],
+        "User_Command": "Go"
     })
 
-    msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
-    can_bus.send(msg)
+    main_torque_offset_data = main_torque_offset_msg.encode({
+        "Main_Torque_Offset_CMD_0" : torques[0],
+        "Main_Torque_Offset_CMD_1" : torques[1],
+        "Main_Torque_Offset_CMD_2" : torques[2],
+        "Main_Torque_Offset_CMD_3" : torques[3],
+        "Main_Torque_Offset_CMD_4" : torques[4]
+    })
 
-
-def angles_reached(goal_state) -> bool:
-    '''
-    reads the measured angles and returns
-    a boolean if the
-    '''
-
-    #TODO: TEST
-
-    msg = can_bus.recv()
-    decoded_msg = db.decode_message(msg.arbitration_id, msg.data)
-
-    if decoded_msg.values == goal_state: # within threshold
-        return True
-    else:
-        return False
+    # construct the messages and send on the CAN bus
+    angle_msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
+    torque_msg = can.Message(arbitration_id=0x601, data=main_torque_offset_data)
+    can_bus.send(angle_msg)
+    can_bus.send(torque_msg)
 
 
 class EdwardControl(Node):
@@ -106,14 +106,18 @@ class EdwardControl(Node):
         # tf broadcaster
         self.broadcaster = TransformBroadcaster(self)
 
+        self.joint_states = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded angles
+        self.joint_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded torques
+
         self.i = 0 # index for joint trajectories
         self.pose_recieved = False # flag for if a goal pose was recieved
         self.joint_traj = None # (N,5) ndarray of joint states for each point in trajectory
-        self.joint_states = [0.0, 0.0, 0.0, 0.0, 0.0] # current joint states
         self.Tse = None # EE in the S frame, from FK at each step
 
+        # True when the trigger is pressed, thus enabling VR tracking
         self.enable_tracking = False
 
+        # stores the zero position of the VR controller
         self.p0 = np.array([0.0, 0.0, 0.0])
         self.q0 = np.array([0.0, 0.0, 0.0, 1.0])
 
@@ -122,7 +126,10 @@ class EdwardControl(Node):
         '''
         listens for button presses on the controller and acts accordingly
         '''
+        # enable tracking of VR controller if trigger is pressed
         self.enable_tracking = True if joy_msg.axes[0] else False
+
+        # zero the axes if B button is pressed
         self.zero = True if joy_msg.buttons[0] else False
 
 
@@ -141,8 +148,6 @@ class EdwardControl(Node):
         '''
         Set joints to the requested positions
         '''
-        #TODO: the simulation in RVIZ should have this happen over some time,
-        # not instantaneously
 
         self.joint_states = [
             request.joint1,
@@ -157,7 +162,7 @@ class EdwardControl(Node):
 
     def goto_callback(self,request,response):
         '''
-        Probably do not actually need to do this.
+        This service probably does not need to be used.
         Since we are almost never planning a long distance, IK
         probably will reliably converge to each goal pose from the
         VR controller which should theoretically be very close to the
@@ -212,12 +217,17 @@ class EdwardControl(Node):
         return response
 
 
-    def run_IK(self, T_vr):
+    def run_IK(self, T_vr, eomg=0.1, ev=0.1):
         '''
         Runs inverse kinematics from the current measured EE state
         self.Tse to the goal state T_vr and sets the joint_states
         equal to the output of inverse kinematics
+
+        Args:
+            T_vr (ndarray): 4x4 homogeneous transformation matrix
+            of the VR controller in the base link frame
         '''
+
         # Extract rotation matrix and position vector from tf matrix
         R_mr, pvec = mr.TransToRp(T_vr)
         R = Rotation.from_matrix(R_mr).as_euler("xyz")
@@ -225,13 +235,14 @@ class EdwardControl(Node):
         # Solve IK and set the joint angles
         if self.enable_tracking:
             #  t0 = time.monotonic_ns()
-            IK_angles = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=0.1, ev=0.1)
+            result = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=eomg, ev=ev)
             #  t_elapsed = time.monotonic_ns() - t0
             #  self.get_logger().info(f"{res[1]}, {round(t_elapsed*1e-9,4)} sec")
-            if res[1]:
-                self.joint_states = list(res[0])
-                self.joint_states[1] = -self.joint_states[1]
+            if result[1]:
+                self.joint_states = list(result[0])
+                self.joint_states[1] = -self.joint_states[1] # TODO: why
             else:
+                # TODO: try planning only position?
                 self.get_logger().warn(f"IK failed to converge")
 
 
@@ -264,9 +275,9 @@ class EdwardControl(Node):
 
             # set the zero to the current tf if the button is clicked
             if self.zero:
-                # TODO: probably just do q0 = q, p0 = p
-                #  q0 = q.copy()
-                #  p0 = p.copy()
+                # TODO: probably just do this:
+                #  self.q0 = q.copy()
+                #  self.p0 = p.copy()
                 self.q0 = np.array([
                     t.transform.rotation.x,
                     t.transform.rotation.y,
@@ -279,11 +290,11 @@ class EdwardControl(Node):
                     t.transform.translation.z
                 ])
 
-            # Compute difference of current pose and zero pose,
+            # Compute difference of current pose and zero pose
             p_diff = p - self.p0
             q_euler = Rotation.from_quat(q).as_euler("xyz")
             q0_euler = Rotation.from_quat(self.q0).as_euler("xyz")
-            if not np.allclose(q_euler,q0_euler):
+            if not np.allclose(q_euler,q0_euler): # maybe can remove
                 q_diff_euler = q_euler - q0_euler
                 q_diff = Rotation.from_euler("xyz", q_diff_euler).as_quat()
             else:
@@ -292,27 +303,26 @@ class EdwardControl(Node):
             # Get transformation from base_link to VR controller
             T_BL_VR = mr.RpToTrans(Rotation.from_quat(q_diff).as_matrix(), p_diff)
 
-            # this function should set joint_states based on inverse kinematics
-            self.run_IK(T_BL_VR)
-
             # broadcast a TF between the base_link and the zero'd "controller_delta" frame
             self.current_time = self.get_clock().now()
-            controller_ee_tf = TransformStamped()
-            controller_ee_tf.transform.translation.x = p_diff[0]
-            controller_ee_tf.transform.translation.y = p_diff[1]
-            controller_ee_tf.transform.translation.z = p_diff[2]
-            controller_ee_tf.transform.rotation.x = q_diff[0]
-            controller_ee_tf.transform.rotation.y = q_diff[1]
-            controller_ee_tf.transform.rotation.z = q_diff[2]
-            controller_ee_tf.transform.rotation.w = q_diff[3]
-            controller_ee_tf.header.stamp = self.current_time.to_msg()
-            controller_ee_tf.header.frame_id = "base_link"
-            controller_ee_tf.child_frame_id = "controller_delta"
-            self.broadcaster.sendTransform(controller_ee_tf)
+            BL_VR_tf_msg = TransformStamped()
+            BL_VR_tf_msg.transform.translation.x = p_diff[0]
+            BL_VR_tf_msg.transform.translation.y = p_diff[1]
+            BL_VR_tf_msg.transform.translation.z = p_diff[2]
+            BL_VR_tf_msg.transform.rotation.x = q_diff[0]
+            BL_VR_tf_msg.transform.rotation.y = q_diff[1]
+            BL_VR_tf_msg.transform.rotation.z = q_diff[2]
+            BL_VR_tf_msg.transform.rotation.w = q_diff[3]
+            BL_VR_tf_msg.header.stamp = self.current_time.to_msg()
+            BL_VR_tf_msg.header.frame_id = "base_link"
+            BL_VR_tf_msg.child_frame_id = "controller_delta"
+            self.broadcaster.sendTransform(BL_VR_tf_msg)
+
+            # Solve IK so BL->EE matches BL->VR
+            self.run_IK(T_BL_VR)
 
         except TransformException as ex:
-            pass
-            #  self.get_logger().info(f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
+            self.get_logger().warn(f'Could not transform "world" to "controller_1": {ex}')
 
         #  update joint angles at each step if pose recieved from GoTo or CSVTraj services
         if self.pose_recieved:
@@ -337,9 +347,13 @@ class EdwardControl(Node):
         js_msg.position = self.joint_states
         self.joint_pub.publish(js_msg)
 
-        # Get the end effector coordinates based on FK
+        # TODO: send joint states on CAN bus
+        #  send_can_cmd(self.joint_states, self.joint_torques)
+
+        # Get the current end effector pose
         # TODO: use sensed joint states, this assumes IK always achieves
         # exactly the requested EE pose 
+        # self.Tse = read_joint_angles()
         self.Tse = mr.FKinSpace(M, Slist, self.joint_states)
 
 
