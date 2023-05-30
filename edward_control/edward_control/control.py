@@ -221,19 +221,18 @@ class EdwardControl(Node):
         # Extract rotation matrix and position vector from tf matrix
         R_mr, pvec = mr.TransToRp(T_vr)
         R = Rotation.from_matrix(R_mr).as_euler("xyz")
-        #  self.get_logger().info(f"R = {[i*180.0/np.pi for i in list(R)]}")
-        #  self.get_logger().info(f"p = {list(pvec)}")
 
-        # Solve IK
+        # Solve IK and set the joint angles
         if self.enable_tracking:
-            t0 = time.monotonic_ns()
-            res = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=0.1, ev=0.1)
-            t_elapsed = time.monotonic_ns() - t0
-            self.get_logger().info(f"{res[1]}, {round(t_elapsed*1e-9,4)} sec")
+            #  t0 = time.monotonic_ns()
+            IK_angles = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=0.1, ev=0.1)
+            #  t_elapsed = time.monotonic_ns() - t0
+            #  self.get_logger().info(f"{res[1]}, {round(t_elapsed*1e-9,4)} sec")
             if res[1]:
                 self.joint_states = list(res[0])
                 self.joint_states[1] = -self.joint_states[1]
-                self.get_logger().info(f"angle = {self.joint_states}")
+            else:
+                self.get_logger().warn(f"IK failed to converge")
 
 
     def csv_callback(self, request, response):
