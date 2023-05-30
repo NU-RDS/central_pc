@@ -2,43 +2,49 @@ import os
 import cantools
 import can
 import time
-from matplotlib import pyplot as plt
 import numpy as np
 import sys
 
 
-x = np.linspace(0,2*np.pi,100)
-y = np.pi/4 * np.sin(x) + np.pi/4
+try:
+    db = cantools.database.load_file('./full_bus.dbc')
+    main_angle_cmd_msg = db.get_message_by_name("Main_Angle_Command")
+    main_torque_offset_msg = db.get_message_by_name("Main_Torque_Offset")
+    can1 = can.interface.Bus(channel = 'can0', bustype = 'socketcan')
+except:
+    print("Can't connect to CAN bus")
+    exit()
 
-db = cantools.database.load_file('./full_bus_signed_angles.dbc')
-main_angle_cmd_msg = db.get_message_by_name("Main_Angle_Command")
+# Get commanded angles from comma separated cmd line args
+angles_rad = [float(i)*np.pi/180.0 for i in sys.argv[1].split(",")]
 
-can1 = can.interface.Bus(channel = 'can0', bustype = 'socketcan')
-send_count = 0
+main_angle_cmd_data = main_angle_cmd_msg.encode({
+    "Angle_Command_0": angles_rad[0],
+    "Angle_Command_1": angles_rad[1],
+    "Angle_Command_2": angles_rad[2],
+    "Angle_Command_3": angles_rad[3],
+    "Angle_Command_4": angles_rad[4],
+    "User_Command": "Go"
+})
 
-#  main_angle_cmd_data = main_angle_cmd_msg.encode({
-    #  "Angle_Command_0": float(sys.argv[1]),
-    #  "Angle_Command_1": 0.0,
-    #  "Angle_Command_2": 0.0,
-    #  "Angle_Command_3": 0.0,
-    #  "Angle_Command_4": 0.0
-#  })
-#  msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
-#  can1.send(msg)
-#  can1.shutdown()
+main_torque_msg_data = main_torque_offset_msg.encode({
+    "Main_Torque_Offset_CMD_0" : 0.0,
+    "Main_Torque_Offset_CMD_1" : 0.0,
+    "Main_Torque_Offset_CMD_2" : 0.0,
+    "Main_Torque_Offset_CMD_3" : 0.0,
+    "Main_Torque_Offset_CMD_4" : 0.0
+})
 
-# sends a sinusoidle angle between -45 and 45
-while True:
-    for yi in y:
-        main_angle_cmd_data = main_angle_cmd_msg.encode({
-            "Angle_Command_0": yi,
-            "Angle_Command_1": 0.0,
-            "Angle_Command_2": 0.0,
-            "Angle_Command_3": 0.0,
-            "Angle_Command_4": 0.0
-        })
-        msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
-        can1.send(msg)
-        send_count = send_count + 1
-        print(yi)
+
+c = 0
+try:
+    while True:
+        angle_msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
+        torque_msg = can.Message(arbitration_id=0x601, data=main_torque_msg_data)
+        can1.send(angle_msg)
+        can1.send(torque_msg)
         time.sleep(0.1)
+        print(f"Sent {c}")
+        c += 1
+except KeyboardInterrupt:
+    can1.shutdown()
