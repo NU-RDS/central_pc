@@ -16,13 +16,13 @@ def generate_launch_description():
 
         DeclareLaunchArgument(
             "use_vr",
-            default_value="false", # TODO: Probably default to True
+            default_value="true", # TODO: Probably default to True
             description="Choose to use the VR controller"
         ),
 
         DeclareLaunchArgument(
             "use_can", # TODO: maybe change to 'robot'='real' or 'sim'
-            default_value="false", # TODO: default to true after testing
+            default_value="true", # TODO: default to true after testing
             description="Choose to enable CAN to USB"
         ),
 
@@ -47,8 +47,8 @@ def generate_launch_description():
             package=package_name,
             executable="edward_control",
             parameters=[{
-                #  'use_jsp_gui' : LaunchConfiguration('use_jsp_gui'),
-                'use_can' : LaunchConfiguration('use_can')
+                'use_can' : LaunchConfiguration('use_can'),
+                'use_vr' : LaunchConfiguration('use_vr')
             }]
         ),
 

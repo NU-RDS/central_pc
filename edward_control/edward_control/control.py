@@ -69,8 +69,10 @@ class EdwardControl(Node):
         super().__init__("edward_control")
 
         # declare and get parameters
-        self.declare_parameter("use_can", False)
+        self.declare_parameter("use_can", True)
+        self.declare_parameter("use_vr", True)
         self.USE_CAN = self.get_parameter("use_can").value
+        self.USE_VR = self.get_parameter("use_vr").value
 
         # initialize CAN if requested
         if self.USE_CAN:
@@ -260,69 +262,70 @@ class EdwardControl(Node):
 
     def timer_callback(self):
 
-        try:
-            # lookup the transform between world and controller_1
-            t = self.tf_buffer.lookup_transform("world", "controller_1",rclpy.time.Time())
+        if self.USE_VR:
+            try:
+                # lookup the transform between world and controller_1
+                t = self.tf_buffer.lookup_transform("world", "controller_1",rclpy.time.Time())
 
-            # Get the current rotation(quaternion) and position vector
-            q = np.array([
-                t.transform.rotation.x,
-                t.transform.rotation.y,
-                t.transform.rotation.z,
-                t.transform.rotation.w
-            ])
-            p = np.array([t.transform.translation.x, t.transform.translation.y, t.transform.translation.z])
-
-            # set the zero to the current tf if the button is clicked
-            if self.zero:
-                # TODO: probably just do this:
-                #  self.q0 = q.copy()
-                #  self.p0 = p.copy()
-                self.q0 = np.array([
+                # Get the current rotation(quaternion) and position vector
+                q = np.array([
                     t.transform.rotation.x,
                     t.transform.rotation.y,
                     t.transform.rotation.z,
                     t.transform.rotation.w
                 ])
-                self.p0 = np.array([
-                    t.transform.translation.x,
-                    t.transform.translation.y,
-                    t.transform.translation.z
-                ])
+                p = np.array([t.transform.translation.x, t.transform.translation.y, t.transform.translation.z])
 
-            # Compute difference of current pose and zero pose
-            p_diff = p - self.p0
-            q_euler = Rotation.from_quat(q).as_euler("xyz")
-            q0_euler = Rotation.from_quat(self.q0).as_euler("xyz")
-            if not np.allclose(q_euler,q0_euler): # maybe can remove
-                q_diff_euler = q_euler - q0_euler
-                q_diff = Rotation.from_euler("xyz", q_diff_euler).as_quat()
-            else:
-                q_diff = self.q0
+                # set the zero to the current tf if the button is clicked
+                if self.zero:
+                    # TODO: probably just do this:
+                    #  self.q0 = q.copy()
+                    #  self.p0 = p.copy()
+                    self.q0 = np.array([
+                        t.transform.rotation.x,
+                        t.transform.rotation.y,
+                        t.transform.rotation.z,
+                        t.transform.rotation.w
+                    ])
+                    self.p0 = np.array([
+                        t.transform.translation.x,
+                        t.transform.translation.y,
+                        t.transform.translation.z
+                    ])
 
-            # Get transformation from base_link to VR controller
-            T_BL_VR = mr.RpToTrans(Rotation.from_quat(q_diff).as_matrix(), p_diff)
+                # Compute difference of current pose and zero pose
+                p_diff = p - self.p0
+                q_euler = Rotation.from_quat(q).as_euler("xyz")
+                q0_euler = Rotation.from_quat(self.q0).as_euler("xyz")
+                if not np.allclose(q_euler,q0_euler): # maybe can remove
+                    q_diff_euler = q_euler - q0_euler
+                    q_diff = Rotation.from_euler("xyz", q_diff_euler).as_quat()
+                else:
+                    q_diff = self.q0
 
-            # broadcast a TF between the base_link and the zero'd "controller_delta" frame
-            self.current_time = self.get_clock().now()
-            BL_VR_tf_msg = TransformStamped()
-            BL_VR_tf_msg.transform.translation.x = p_diff[0]
-            BL_VR_tf_msg.transform.translation.y = p_diff[1]
-            BL_VR_tf_msg.transform.translation.z = p_diff[2]
-            BL_VR_tf_msg.transform.rotation.x = q_diff[0]
-            BL_VR_tf_msg.transform.rotation.y = q_diff[1]
-            BL_VR_tf_msg.transform.rotation.z = q_diff[2]
-            BL_VR_tf_msg.transform.rotation.w = q_diff[3]
-            BL_VR_tf_msg.header.stamp = self.current_time.to_msg()
-            BL_VR_tf_msg.header.frame_id = "base_link"
-            BL_VR_tf_msg.child_frame_id = "controller_delta"
-            self.broadcaster.sendTransform(BL_VR_tf_msg)
+                # Get transformation from base_link to VR controller
+                T_BL_VR = mr.RpToTrans(Rotation.from_quat(q_diff).as_matrix(), p_diff)
 
-            # Solve IK so BL->EE matches BL->VR
-            self.run_IK(T_BL_VR)
+                # broadcast a TF between the base_link and the zero'd "controller_delta" frame
+                self.current_time = self.get_clock().now()
+                BL_VR_tf_msg = TransformStamped()
+                BL_VR_tf_msg.transform.translation.x = p_diff[0]
+                BL_VR_tf_msg.transform.translation.y = p_diff[1]
+                BL_VR_tf_msg.transform.translation.z = p_diff[2]
+                BL_VR_tf_msg.transform.rotation.x = q_diff[0]
+                BL_VR_tf_msg.transform.rotation.y = q_diff[1]
+                BL_VR_tf_msg.transform.rotation.z = q_diff[2]
+                BL_VR_tf_msg.transform.rotation.w = q_diff[3]
+                BL_VR_tf_msg.header.stamp = self.current_time.to_msg()
+                BL_VR_tf_msg.header.frame_id = "base_link"
+                BL_VR_tf_msg.child_frame_id = "controller_delta"
+                self.broadcaster.sendTransform(BL_VR_tf_msg)
 
-        except TransformException as ex:
-            self.get_logger().warn(f'Could not transform "world" to "controller_1": {ex}')
+                # Solve IK so BL->EE matches BL->VR
+                self.run_IK(T_BL_VR)
+
+            except TransformException as ex:
+                self.get_logger().warn(f'Could not transform "world" to "controller_1": {ex}')
 
         #  update joint angles at each step if pose recieved from GoTo or CSVTraj services
         if self.pose_recieved:
