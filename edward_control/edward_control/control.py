@@ -354,8 +354,7 @@ class EdwardControl(Node):
         #  send_can_cmd(self.joint_states, self.joint_torques)
 
         # Get the current end effector pose
-        # TODO: use sensed joint states, this assumes IK always achieves
-        # exactly the requested EE pose 
+        # TODO: use sensed joint states, not FK
         # self.Tse = read_joint_angles()
         self.Tse = mr.FKinSpace(M, Slist, self.joint_states)
 
