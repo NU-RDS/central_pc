@@ -19,6 +19,8 @@ class ButtonNode(Node):
             if current_state:
                 # Button pressed
                 self.print_to_serial('a')
+            else:
+                self.print_to_serial('b')
         self.previous_state = current_state
 
     def print_to_serial(self, message):
