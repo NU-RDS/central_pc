@@ -15,6 +15,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   srv/CSVTraj.srv
   srv/GoTo.srv
   srv/SetJoints.srv
+  msg/CmdState.msg
   DEPENDENCIES geometry_msgs
 )
 
