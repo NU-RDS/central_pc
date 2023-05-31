@@ -68,6 +68,8 @@ class EdwardControl(Node):
         self.cmd_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded torques
         self.hand_state = False
 
+        self.prev_hand_state = 0
+
         self.i = 0 # index for joint trajectories
         self.pose_recieved = False # flag for if a goal pose was recieved
         self.joint_traj = None # (N,5) ndarray of joint states for each point in trajectory
@@ -79,6 +81,7 @@ class EdwardControl(Node):
         # stores the zero position of the VR controller
         self.p0 = np.array([0.0, 0.0, 0.0])
         self.q0 = np.array([0.0, 0.0, 0.0, 1.0])
+
 
     def joint_states_callback(self, js_msg):
         '''
@@ -98,10 +101,13 @@ class EdwardControl(Node):
         # zero the axes if B button is pressed
         self.zero = True if joy_msg.buttons[0] else False
 
-        # set the hand state
-        #  if joy_msg.buttons[3] != self.hand_state:
-            #  if self.joy_msg.buttons[3]:
-                #  pass
+        current_state = joy_msg.buttons[3]
+        avg = (self.prev_hand_state + current_state) / 2.0
+        self.prev_hand_state = avg
+        if abs(avg) > 0.05:
+            self.hand_state = True
+        else:
+            self.hand_state = False
 
 
     def home_callback(self, request, response):
@@ -131,12 +137,6 @@ class EdwardControl(Node):
         return response
 
 
-
-    def modIK(self,Slist,M, thetalist, dest):
-      T = mr.FKinSpace(M, Slist, thetalist)
-      v=T[0:3,3]
-      return thetalist+np.linalg.pinv(mr.JacobianSpace(Slist, thetalist))@np.concatenate((np.zeros(3),dest[-3:]-v))
-
     def run_IK(self, T_vr, eomg=0.1, ev=0.1):
         '''
         Runs inverse kinematics from the current measured EE state
@@ -156,9 +156,7 @@ class EdwardControl(Node):
 
         # Solve IK and set the joint angles
         if self.enable_tracking:
-            #  result = self.modIK(Slist, M, self.joint_angles, dest=pvec)
             result = mr.IKinSpace(Slist, M, T_vr, self.joint_angles, eomg=eomg, ev=ev)
-            self.cmd_angles = list(result)
             if result[1]:
                 self.cmd_angles = list(result[0])
                 self.cmd_angles[1] = -self.cmd_angles[1] # TODO: why??
@@ -277,7 +275,7 @@ class EdwardControl(Node):
         cmd_state_msg = CmdState()
         cmd_state_msg.angles = self.cmd_angles
         cmd_state_msg.torques =self.cmd_torques
-        cmd_state_msg.hand = self.hand_state
+        cmd_state_msg.hand = bool(self.hand_state)
         self.cmd_state_pub.publish(cmd_state_msg)
 
         # Get the current end effector pose

@@ -29,7 +29,7 @@ class HardwareInterface(Node):
 
         # declare and get parameters
         self.declare_parameter("rate",100)
-        self.declare_parameter("serial_port_name","/dev/ttyUSB0")
+        self.declare_parameter("serial_port_name","/dev/ttyACM0")
         self.declare_parameter("serial_baud", 9600)
         freq = self.get_parameter("rate").value
         serial_port_name = self.get_parameter("serial_port_name").value
@@ -42,7 +42,7 @@ class HardwareInterface(Node):
         )
         self.db = cantools.database.load_file(dbc_file_path)
 
-        # instantiate the CAN bus
+        #  instantiate the CAN bus
         self.can_bus = can.interface.Bus(channel='can0', bustype='socketcan')
 
         # Connect to serial port
@@ -86,7 +86,7 @@ class HardwareInterface(Node):
         angles = cmd_state_msg.angles.tolist()
         torques = cmd_state_msg.torques.tolist()
         hand_state = cmd_state_msg.hand
-
+#
         main_angle_cmd_msg = self.db.get_message_by_name("Main_Angle_Command")
         main_torque_offset_msg = self.db.get_message_by_name("Main_Torque_Offset")
 
@@ -110,13 +110,15 @@ class HardwareInterface(Node):
         # construct the messages and send on the CAN bus
         angle_msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
         torque_msg = can.Message(arbitration_id=0x601, data=main_torque_offset_data)
-        #  self.can_bus.send(angle_msg)
-        #  self.can_bus.send(torque_msg)
+        self.can_bus.send(angle_msg)
+        self.can_bus.send(torque_msg)
 
         # if serial port is connected, send command to hand accordingly
         if self.serial_port is not None:
             if hand_state:
                 self.serial_port.write('a'.encode())
+            else:
+                self.serial_port.write('b'.encode())
 
     def read_joint_states(self):
         '''
