@@ -7,6 +7,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState, Joy
 from visualization_msgs.msg import Marker
 from edward_interfaces.srv import GoTo, SetJoints, CSVTraj
+from edward_interfaces.msg import CmdState
 from std_srvs.srv import Empty
 
 from ament_index_python.packages import get_package_share_directory
@@ -26,79 +27,32 @@ LOG = False     # TODO: make this a parameter to the node
 FREQ: int = 100 # TODO: make this a parameter to the node
 
 
-def send_can_cmd(angles, torques):
-    '''
-    Sends requested angles and torques on the CAN bus
-
-    Args:
-        angles: length 5 array of commanded angles
-        torques: length 5 array of commanded torque offsets
-    '''
-
-    #TODO this has only been tested outside of the ROS node
-
-    main_angle_cmd_msg = db.get_message_by_name("Main_Angle_Command")
-    main_torque_offset_msg = db.get_message_by_name("Main_Torque_Offset")
-
-    main_angle_cmd_data = main_angle_cmd_msg.encode({
-        "Angle_Command_0": angles[0],
-        "Angle_Command_1": angles[1],
-        "Angle_Command_2": angles[2],
-        "Angle_Command_3": angles[3],
-        "Angle_Command_4": angles[4],
-        "User_Command": "Go"
-    })
-
-    main_torque_offset_data = main_torque_offset_msg.encode({
-        "Main_Torque_Offset_CMD_0" : torques[0],
-        "Main_Torque_Offset_CMD_1" : torques[1],
-        "Main_Torque_Offset_CMD_2" : torques[2],
-        "Main_Torque_Offset_CMD_3" : torques[3],
-        "Main_Torque_Offset_CMD_4" : torques[4]
-    })
-
-    # construct the messages and send on the CAN bus
-    angle_msg = can.Message(arbitration_id=0x600, data=main_angle_cmd_data)
-    torque_msg = can.Message(arbitration_id=0x601, data=main_torque_offset_data)
-    can_bus.send(angle_msg)
-    can_bus.send(torque_msg)
-
-
 class EdwardControl(Node):
     def __init__(self):
         super().__init__("edward_control")
 
         # declare and get parameters
-        self.declare_parameter("use_can", True)
+        self.declare_parameter("robot", "real")
         self.declare_parameter("use_vr", True)
-        self.USE_CAN = self.get_parameter("use_can").value
         self.USE_VR = self.get_parameter("use_vr").value
-
-        # initialize CAN if requested
-        if self.USE_CAN:
-            self.get_logger().info("Using CAN!")
-            dbc_file_path = os.path.join(
-                get_package_share_directory("edward_control"),
-                "config/full_bus.dbc"
-            )
-            db = cantools.database.load_file(dbc_file_path)
-
-            # instantiate the CAN bus
-            self.can_bus = can.interface.Bus(channel='can0', bustype='socketcan')
+        self.ROBOT = self.get_parameter("robot").value
 
         # Create timer
         _timer = self.create_timer(1/FREQ, self.timer_callback)
 
         # Publishers
-        self.joint_pub = self.create_publisher(JointState,"joint_states",10)
+        if self.ROBOT == "sim":
+            self.joint_pub = self.create_publisher(JointState,"/joint_states",10)
+        self.cmd_state_pub = self.create_publisher(CmdState, "/cmd_state", 10)
 
         # Subscribers
         _joy_sub = self.create_subscription(Joy, "/joy", self.joy_callback, 10)
+        if self.ROBOT == "real":
+            _joint_states_sub = self.create_subscription(JointState, "/joint_states", self.joint_states_callback, 10)
 
         # Services
         _csv_traj_srv = self.create_service(CSVTraj, "csv_traj", self.csv_callback)
         _set_joints_srv = self.create_service(SetJoints, "set_joints", self.set_joints_callback)
-        _goto_srv = self.create_service(GoTo, "goto", self.goto_callback)
         _home_srv = self.create_service(Empty, "home", self.home_callback)
 
         # tf listener and buffer
@@ -108,8 +62,11 @@ class EdwardControl(Node):
         # tf broadcaster
         self.broadcaster = TransformBroadcaster(self)
 
-        self.joint_states = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded angles
-        self.joint_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded torques
+        self.joint_angles = [0.0, 0.0, 0.0, 0.0, 0.0] # measured angles
+        self.joint_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # measured torques
+        self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded angles
+        self.cmd_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded torques
+        self.hand_state = False
 
         self.i = 0 # index for joint trajectories
         self.pose_recieved = False # flag for if a goal pose was recieved
@@ -123,6 +80,13 @@ class EdwardControl(Node):
         self.p0 = np.array([0.0, 0.0, 0.0])
         self.q0 = np.array([0.0, 0.0, 0.0, 1.0])
 
+    def joint_states_callback(self, js_msg):
+        '''
+        Get the measured joint angles and torques
+        '''
+        # TODO: check!
+        self.joint_angles = js_msg.position.tolist()
+        self.joint_torques = js_msg.effort.tolist()
 
     def joy_callback(self, joy_msg):
         '''
@@ -134,6 +98,11 @@ class EdwardControl(Node):
         # zero the axes if B button is pressed
         self.zero = True if joy_msg.buttons[0] else False
 
+        # set the hand state
+        #  if joy_msg.buttons[3] != self.hand_state:
+            #  if self.joy_msg.buttons[3]:
+                #  pass
+
 
     def home_callback(self, request, response):
         '''
@@ -142,7 +111,7 @@ class EdwardControl(Node):
 
         #TODO: is this ok to do? Should a trajectory be made?
 
-        self.joint_states = [0.0, 0.0, 0.0, 0.0, 0.0]
+        self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0]
         return response
 
 
@@ -151,7 +120,7 @@ class EdwardControl(Node):
         Set joints to the requested positions
         '''
 
-        self.joint_states = [
+        self.cmd_angles = [
             request.joint1,
             request.joint2,
             request.joint3,
@@ -162,62 +131,11 @@ class EdwardControl(Node):
         return response
 
 
-    def goto_callback(self,request,response):
-        '''
-        This service probably does not need to be used.
-        Since we are almost never planning a long distance, IK
-        probably will reliably converge to each goal pose from the
-        VR controller which should theoretically be very close to the
-        previous goal pose.
-        '''
 
-        self.pose_recieved = True
-
-        #  Get a transformation matrix for the goal pose in the space frame
-        R = Rotation.from_euler(
-            "xyz", [request.roll,request.pitch,request.yaw], degrees=True
-        ).as_matrix()
-
-        p = np.array([request.x,request.y,request.z])
-        goal = mr.RpToTrans(R, p)
-
-        # if Tse is defined, set it as the starting configuration
-        # otherwise use M as starting configuration in reference trajectory
-        start = self.Tse if self.Tse is not None else M
-
-        total_time = 1 # TODO: change/parmaterize this
-        N = int(total_time/(1/FREQ)) # TODO: what should this be?
-        self.joint_traj = np.zeros((N,5))
-
-        # generate a reference trajectory from start to goal over time total_time with N points
-        ref_traj = mr.CartesianTrajectory(
-            Xstart=start,
-            Xend=goal,
-            Tf=total_time,
-            N=N,
-            method=5
-        )
-
-        # for each point along trajectory, compute IK and store it in the joint_traj array
-        for i in range(len(ref_traj)):
-            res = mr.IKinSpace(Slist, M, ref_traj[i], self.joint_states, eomg=0.1, ev=0.1)
-            self.joint_traj[i,:] = res[0]
-            if res[1] is False:
-                self.get_logger().warn("IK solver failed to converge")
-                response.status = False
-                self.get_logger().info(f"{i}, {type(i)}")
-                self.joint_traj = self.joint_traj[:i,:] # remove subsequent rows
-                break
-        else:
-            # only true if never broken (converged successfully)
-            response.status = True
-
-        # save joint trajectory to a csv file
-        if LOG:
-            np.savetxt("joint_traj_log.csv", self.joint_traj,delimiter=",", fmt="%.4f")
-
-        return response
-
+    def modIK(self,Slist,M, thetalist, dest):
+      T = mr.FKinSpace(M, Slist, thetalist)
+      v=T[0:3,3]
+      return thetalist+np.linalg.pinv(mr.JacobianSpace(Slist, thetalist))@np.concatenate((np.zeros(3),dest[-3:]-v))
 
     def run_IK(self, T_vr, eomg=0.1, ev=0.1):
         '''
@@ -228,6 +146,8 @@ class EdwardControl(Node):
         Args:
             T_vr (ndarray): 4x4 homogeneous transformation matrix
             of the VR controller in the base link frame
+            eomg: error tolerance on orientation
+            ev: error tolerance on position
         '''
 
         # Extract rotation matrix and position vector from tf matrix
@@ -236,15 +156,13 @@ class EdwardControl(Node):
 
         # Solve IK and set the joint angles
         if self.enable_tracking:
-            #  t0 = time.monotonic_ns()
-            result = mr.IKinSpace(Slist, M, T_vr, self.joint_states, eomg=eomg, ev=ev)
-            #  t_elapsed = time.monotonic_ns() - t0
-            #  self.get_logger().info(f"{res[1]}, {round(t_elapsed*1e-9,4)} sec")
+            #  result = self.modIK(Slist, M, self.joint_angles, dest=pvec)
+            result = mr.IKinSpace(Slist, M, T_vr, self.joint_angles, eomg=eomg, ev=ev)
+            self.cmd_angles = list(result)
             if result[1]:
-                self.joint_states = list(result[0])
-                self.joint_states[1] = -self.joint_states[1] # TODO: why
+                self.cmd_angles = list(result[0])
+                self.cmd_angles[1] = -self.cmd_angles[1] # TODO: why??
             else:
-                # TODO: try planning only position?
                 self.get_logger().warn(f"IK failed to converge")
 
 
@@ -261,6 +179,10 @@ class EdwardControl(Node):
 
 
     def timer_callback(self):
+
+        if self.ROBOT == "sim":
+            # if just simulating, set the sensed joint states equal to the commanded ones
+            self.joint_angles = self.cmd_angles
 
         if self.USE_VR:
             try:
@@ -329,7 +251,7 @@ class EdwardControl(Node):
 
         #  update joint angles at each step if pose recieved from GoTo or CSVTraj services
         if self.pose_recieved:
-            self.joint_states = [
+            self.cmd_angles = [
                 self.joint_traj[self.i,0],
                 self.joint_traj[self.i,1],
                 self.joint_traj[self.i,2],
@@ -343,20 +265,23 @@ class EdwardControl(Node):
                 self.pose_recieved = False
 
 
-        # construct and publish a JointState message
-        js_msg = JointState()
-        js_msg.header.stamp = self.get_clock().now().to_msg()
-        js_msg.name = ["joint1","joint2","joint3","joint4","joint5"]
-        js_msg.position = self.joint_states
-        self.joint_pub.publish(js_msg)
+        # construct and publish a JointState message if just simulating
+        if self.ROBOT == "sim":
+            js_msg = JointState()
+            js_msg.header.stamp = self.get_clock().now().to_msg()
+            js_msg.name = ["joint1","joint2","joint3","joint4","joint5"]
+            js_msg.position = self.joint_angles
+            self.joint_pub.publish(js_msg)
 
-        # TODO: send joint states on CAN bus
-        #  send_can_cmd(self.joint_states, self.joint_torques)
+        # publish the commanded anlges and torques on /cmd_state
+        cmd_state_msg = CmdState()
+        cmd_state_msg.angles = self.cmd_angles
+        cmd_state_msg.torques =self.cmd_torques
+        cmd_state_msg.hand = self.hand_state
+        self.cmd_state_pub.publish(cmd_state_msg)
 
         # Get the current end effector pose
-        # TODO: use sensed joint states, not FK
-        # self.Tse = read_joint_angles()
-        self.Tse = mr.FKinSpace(M, Slist, self.joint_states)
+        self.Tse = mr.FKinSpace(M, Slist, self.joint_angles)
 
 
 

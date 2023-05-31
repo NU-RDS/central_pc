@@ -23,6 +23,12 @@ def generate_launch_description():
         ExecuteProcess(
             cmd=['sudo', 'bash', script_path],
             output='screen'
-        )
+        ),
+
+        # Start hardware interface node
+        Node(
+            package=package_name,
+            executable="hardware_interface",
+        ),
 
     ])

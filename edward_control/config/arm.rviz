@@ -7,8 +7,6 @@ Panels:
         - /Global Options1
         - /Robot Arm1
         - /Robot Arm1/Description Topic1
-        - /Marker1
-        - /Marker1/Topic1
         - /TF1
         - /TF1/Frames1
         - /TF1/Tree1
@@ -138,19 +136,6 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
-    - Class: rviz_default_plugins/Marker
-      Enabled: true
-      Name: Marker
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /ee_pose
-      Value: true
     - Class: rviz_default_plugins/TF
       Enabled: true
       Frame Timeout: 15

@@ -21,9 +21,9 @@ def generate_launch_description():
         ),
 
         DeclareLaunchArgument(
-            "use_can", # TODO: maybe change to 'robot'='real' or 'sim'
-            default_value="true", # TODO: default to true after testing
-            description="Choose to enable CAN to USB"
+            "robot",
+            default_value="real",
+            description="Choose to enable hardware communication if using the real robot"
         ),
 
         DeclareLaunchArgument(
@@ -32,22 +32,22 @@ def generate_launch_description():
             description="Choose to open RVIZ"
         ),
 
-        # Bring up CAN to USB
+        # Bring up hardware interface and can
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
                 PathJoinSubstitution(
-                    [FindPackageShare(package_name),'launch/can_bringup.launch.py']
+                    [FindPackageShare(package_name),'launch/hardware_bringup.launch.py']
                 )
             ]),
-            condition = LaunchConfigurationEquals("use_can", "true"),
+            condition = LaunchConfigurationEquals("robot", "real"),
         ),
 
-        # state edward_control node
-        Node (
+        # start edward_control node
+        Node(
             package=package_name,
             executable="edward_control",
             parameters=[{
-                'use_can' : LaunchConfiguration('use_can'),
+                'robot' : LaunchConfiguration('robot'),
                 'use_vr' : LaunchConfiguration('use_vr')
             }]
         ),

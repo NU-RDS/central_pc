@@ -26,7 +26,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'edward_control = edward_control.control:main'
+            'edward_control = edward_control.control:main',
+            'hardware_interface = edward_control.hardware_interface:main'
         ],
     },
 )
