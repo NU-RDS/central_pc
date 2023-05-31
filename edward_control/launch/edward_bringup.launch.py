@@ -53,11 +53,11 @@ def generate_launch_description():
         ),
 
         # start VR publisher node
-        Node (
-            package="simple_vr_driver",
-            executable="VR_publisher",
-            condition=LaunchConfigurationEquals("use_vr", "true")
-        ),
+        #  Node (
+            #  package="simple_vr_driver",
+            #  executable="VR_publisher",
+            #  condition=LaunchConfigurationEquals("use_vr", "true")
+        #  ),
 
         # run robot state publisher with robot description defined by the urdf
         Node(
