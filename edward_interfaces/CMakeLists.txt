@@ -13,7 +13,6 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   srv/CSVTraj.srv
-  srv/GoTo.srv
   srv/SetJoints.srv
   msg/CmdState.msg
   DEPENDENCIES geometry_msgs

@@ -19,7 +19,7 @@ from visualization_msgs.msg import Marker
 from geometry_msgs.msg import TransformStamped, PoseStamped
 
 from std_srvs.srv import Empty
-from edward_interfaces.srv import GoTo, SetJoints, CSVTraj
+from edward_interfaces.srv import SetJoints, CSVTraj
 
 from .params import Slist, Blist, M, total_length
 
