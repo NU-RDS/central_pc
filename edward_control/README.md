@@ -1,6 +1,11 @@
 # Nodes
 
 ## edward_control
+The `edward_control` node is responsible for solving inverse kinematics
+to determine the joint angles and torques to command to the motors 
+so the robot arm can track the VR controller. Furthermore, this node
+defines several services for controlling the robot in very basic ways
+without a VR controller.
 
 ### Subscribes:
 - `/joint_states`
@@ -11,13 +16,18 @@
 
 ### Services
 - `/csv_traj` (edward_interfaces/srv/CSVTraj)
+  - command the robot to follow the joint trajectories defined in a CSV file
 - `/set_joints` (edward_interfaces/srv/SetJoints)
+  - enables the user to command the joint angles directly
 - `/home` (std_srvs/srv/Empty)
+  - commands the joint angles to go to their home positions
 
 ## hardware_interface
-The hardware interface node is responsible for communication with the 
-actual robot. Primarily this is over CAN using a USB2CAN module. The 
-end-effector robot hand is controlled over serial.
+The `hardware_interface` node is responsible for communication with the 
+actual robot. This node sends the commanded states, from the `/cmd_state`
+topic, on the CAN bus using the USB2CAN module connected to the computer.
+The hand state field of the `CmdState` message is sent over serial.
+
 
 ### Subscribes
 - `/cmd_state`: commanded joint angles, torques, and hand state
