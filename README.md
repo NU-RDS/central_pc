@@ -15,6 +15,9 @@ using the Valve Index virtual reality controller.
 
 
 ## Packages
+A brief description of the packages in this repository is provided
+below. For more details, see the README's in each package.
+
 **edward_control**
 - Commands joint angles and torques by publishing
 `CmdState` messages on the `/cmd_state` topic. 
