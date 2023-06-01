@@ -15,6 +15,9 @@
 - `/home` (std_srvs/srv/Empty)
 
 ## hardware_interface
+The hardware interface node is responsible for communication with the 
+actual robot. Primarily this is over CAN using a USB2CAN module. The 
+end-effector robot hand is controlled over serial.
 
 ### Subscribes
 - `/cmd_state`: commanded joint angles, torques, and hand state

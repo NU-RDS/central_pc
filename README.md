@@ -12,6 +12,7 @@ using the Valve Index virtual reality controller.
 - [modern_robotcs](https://github.com/NxRLab/ModernRobotics)
 - `numpy`
 - `scipy`
+- `cantools`
 
 
 ## Packages
