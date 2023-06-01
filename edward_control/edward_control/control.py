@@ -1,24 +1,25 @@
 import numpy as np
-import time
 import modern_robotics as mr
+import time
 from scipy.spatial.transform import Rotation
-import rclpy
-from rclpy.node import Node
-from sensor_msgs.msg import JointState, Joy
-from visualization_msgs.msg import Marker
-from edward_interfaces.srv import GoTo, SetJoints, CSVTraj
-from edward_interfaces.msg import CmdState
-from std_srvs.srv import Empty
-
-from ament_index_python.packages import get_package_share_directory
-from tf2_ros import TransformException, TransformBroadcaster
-from geometry_msgs.msg import TransformStamped, PoseStamped
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
-from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 import can
 import cantools
 import os
+
+import rclpy
+from rclpy.node import Node
+from tf2_ros import TransformException, TransformBroadcaster
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+from ament_index_python.packages import get_package_share_directory
+
+from edward_interfaces.msg import CmdState
+from sensor_msgs.msg import JointState, Joy
+from visualization_msgs.msg import Marker
+from geometry_msgs.msg import TransformStamped, PoseStamped
+
+from std_srvs.srv import Empty
+from edward_interfaces.srv import GoTo, SetJoints, CSVTraj
 
 from .params import Slist, Blist, M, total_length
 
@@ -66,8 +67,7 @@ class EdwardControl(Node):
         self.joint_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # measured torques
         self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded angles
         self.cmd_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded torques
-        self.hand_state = False
-
+        self.hand_state = False # commanded hand state
         self.prev_hand_state = 0
 
         self.i = 0 # index for joint trajectories
@@ -91,6 +91,7 @@ class EdwardControl(Node):
         self.joint_angles = js_msg.position.tolist()
         self.joint_torques = js_msg.effort.tolist()
 
+
     def joy_callback(self, joy_msg):
         '''
         listens for button presses on the controller and acts accordingly
@@ -101,6 +102,7 @@ class EdwardControl(Node):
         # zero the axes if B button is pressed
         self.zero = True if joy_msg.buttons[0] else False
 
+        # set the hand state
         current_state = joy_msg.buttons[3]
         avg = (self.prev_hand_state + current_state) / 2.0
         self.prev_hand_state = avg
@@ -114,16 +116,13 @@ class EdwardControl(Node):
         '''
         Brings the robot back to its home configuration
         '''
-
-        #TODO: is this ok to do? Should a trajectory be made?
-
         self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0]
         return response
 
 
     def set_joints_callback(self, request, response):
         '''
-        Set joints to the requested positions
+        Commands joints to the requested positions
         '''
 
         self.cmd_angles = [
@@ -166,8 +165,7 @@ class EdwardControl(Node):
 
     def csv_callback(self, request, response):
         '''
-        Gets trajectories of joint states from a CSV file.
-        Useful for testing
+        Gets trajectory of joint states from a CSV file.
         '''
 
         self.pose_recieved = True
@@ -198,9 +196,11 @@ class EdwardControl(Node):
 
                 # set the zero to the current tf if the button is clicked
                 if self.zero:
-                    # TODO: probably just do this:
+
+                    #TODO probably just do this:
                     #  self.q0 = q.copy()
                     #  self.p0 = p.copy()
+
                     self.q0 = np.array([
                         t.transform.rotation.x,
                         t.transform.rotation.y,
@@ -247,7 +247,7 @@ class EdwardControl(Node):
             except TransformException as ex:
                 self.get_logger().warn(f'Could not transform "world" to "controller_1": {ex}')
 
-        #  update joint angles at each step if pose recieved from GoTo or CSVTraj services
+        #  update joint angles at each step if pose recieved from CSVTraj services
         if self.pose_recieved:
             self.cmd_angles = [
                 self.joint_traj[self.i,0],
