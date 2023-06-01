@@ -50,10 +50,4 @@ source install/setup.bash
 ros2 launch edward_control edward_bringup.launch.py
 ```
 
-## TODO:
-- test button toggle code for hand
-- delete old/ and usb2can_test/ after checking
-- test USB2CAN code in the edward_control node
-- update this README to explain launchfile and node parameters etc.
-
 
