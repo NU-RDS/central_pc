@@ -2,7 +2,7 @@
 A ROS2 interface for controlling the EdWARD 5-DoF robot arm
 
 <p align="center">
-  <img width="460" height="300" src="https://github.com/NU-RDS/central_pc/assets/45540813/28931dba-c25b-4e03-a1a6-eee9c942c9c7">
+  <img width="300" src="https://github.com/NU-RDS/central_pc/assets/45540813/28931dba-c25b-4e03-a1a6-eee9c942c9c7">
 </p>
 
 ## Quickstart
