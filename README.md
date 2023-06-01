@@ -23,7 +23,7 @@ below. For more details, see the README's in each package.
 - Commands joint angles and torques by publishing
 `CmdState` messages on the `/cmd_state` topic. 
 - Listens to transform data to obtain the 3D pose of the VR
-controller, and does forward kinematics to enable teleoperation of the robot
+controller, and does inverse kinematics to enable teleoperation of the robot
 
 **edward_interfaces**
 - Defines custom message and service types
