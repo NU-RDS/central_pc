@@ -18,9 +18,9 @@ without a VR controller.
 - `/csv_traj` (edward_interfaces/srv/CSVTraj)
   - command the robot to follow the joint trajectories defined in a CSV file
 - `/set_joints` (edward_interfaces/srv/SetJoints)
-  - enables the user to command the joint angles directly
+  - command the joint angles directly
 - `/home` (std_srvs/srv/Empty)
-  - commands the joint angles to go to their home positions
+  - command the joint angles to go to their home positions
 
 ## hardware_interface
 The `hardware_interface` node is responsible for communication with the 
