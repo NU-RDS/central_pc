@@ -232,6 +232,49 @@ def InverseDynamics(thetalist, g, Force, Mlist, Glist, Slist):
     return taulist
 
 
+def check_limits(thetalist,M,Slist):
+    '''
+    UNTESTED
+    checks joint limits
+    '''
+    L1=0.154
+    L2=0.1007
+    L3=0.31274
+    L4=0.11295
+    L5=0.063573
+    isinlimit=True
+    isinworkspace=True
+    if thetalist[0]>pi or thetalist[0] < -pi:
+        message="joint 1 exceeds limit"
+        print(message)
+        isinlimit=False
+    if thetalist[1]>pi/2 or thetalist[1] < -pi/2:
+        message="joint 2 exceeds limit"
+        print(message)
+        isinlimit=False
+    if thetalist[2]>pi or thetalist[2] < -pi:
+        message="joint 3 exceeds limit"
+        print(message)
+        isinlimit=False
+    if thetalist[3]>pi/3 or thetalist[3] < -pi/3:
+        message="joint 4 exceeds limit"
+        print(message)
+        isinlimit=False
+    if thetalist[4]>pi or thetalist[4] < -pi:
+        message="joint 5 exceeds limit"
+        print(message)
+        isinlimit=False
+    T=mr.FKinSpace(M,Slist,thetalist)
+    x=T[0][3]
+    y=T[1][3]
+    z=T[2][3]
+    if x>L1 and (((x-0.154)**2)+(y**2)+(z**2))<(L2+L3+L4+L5)**2:
+        isinworkspace=True
+    else:
+        message="out of workspace"
+        print(message)
+        isinworkspace=False
+    return isinlimit,isinworkspace
 
 #Input calculation for IK:
 Blist = find_Blist(L1,L2,L3,L4,L5,H1,H2,H3,W1,W2)
