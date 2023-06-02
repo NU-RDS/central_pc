@@ -14,6 +14,7 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   srv/CSVTraj.srv
   srv/SetJoints.srv
+  srv/GoTo.srv
   msg/CmdState.msg
   DEPENDENCIES geometry_msgs
 )

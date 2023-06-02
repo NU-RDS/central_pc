@@ -19,7 +19,7 @@ from visualization_msgs.msg import Marker
 from geometry_msgs.msg import TransformStamped, PoseStamped
 
 from std_srvs.srv import Empty
-from edward_interfaces.srv import SetJoints, CSVTraj
+from edward_interfaces.srv import SetJoints, CSVTraj, GoTo
 
 from edward_control.kinematic_params import Slist, Blist, M, total_length
 
@@ -55,6 +55,7 @@ class EdwardControl(Node):
         _csv_traj_srv = self.create_service(CSVTraj, "csv_traj", self.csv_callback)
         _set_joints_srv = self.create_service(SetJoints, "set_joints", self.set_joints_callback)
         _home_srv = self.create_service(Empty, "home", self.home_callback)
+        _goto_srv = self.create_service(GoTo, "goto", self.goto_callback)
 
         # tf listener and buffer
         self.tf_buffer = Buffer()
@@ -83,11 +84,67 @@ class EdwardControl(Node):
         self.q0 = np.array([0.0, 0.0, 0.0, 1.0])
 
 
+    def goto_callback(self,request,response):
+        '''
+        This service probably does not need to be used.
+        Since we are almost never planning a long distance, IK
+        probably will reliably converge to each goal pose from the
+        VR controller which should theoretically be very close to the
+        previous goal pose.
+        '''
+
+        self.pose_recieved = True
+
+        #  Get a transformation matrix for the goal pose in the space frame
+        R = Rotation.from_euler(
+            "xyz", [request.roll,request.pitch,request.yaw], degrees=True
+        ).as_matrix()
+
+        p = np.array([request.x,request.y,request.z])
+        goal = mr.RpToTrans(R, p)
+
+        # if Tse is defined, set it as the starting configuration
+        # otherwise use M as starting configuration in reference trajectory
+        start = self.Tse if self.Tse is not None else M
+
+        total_time = 1 # TODO: change/parmaterize this
+        N = int(total_time/(1/FREQ)) # TODO: what should this be?
+        self.joint_traj = np.zeros((N,5))
+
+        # generate a reference trajectory from start to goal over time total_time with N points
+        ref_traj = mr.CartesianTrajectory(
+            Xstart=start,
+            Xend=goal,
+            Tf=total_time,
+            N=N,
+            method=5
+        )
+
+        # for each point along trajectory, compute IK and store it in the joint_traj array
+        for i in range(len(ref_traj)):
+            res = mr.IKinSpace(Slist, M, ref_traj[i], self.joint_angles, eomg=0.1, ev=0.1)
+            self.joint_traj[i,:] = res[0]
+            if res[1] is False:
+                self.get_logger().warn("IK solver failed to converge")
+                response.status = False
+                self.get_logger().info(f"{i}, {type(i)}")
+                self.joint_traj = self.joint_traj[:i,:] # remove subsequent rows
+                break
+        else:
+            # only true if never broken (converged successfully)
+            response.status = True
+
+        # save joint trajectory to a csv file
+        if LOG:
+            np.savetxt("joint_traj_log.csv", self.joint_traj,delimiter=",", fmt="%.4f")
+
+        return response
+
+
     def joint_states_callback(self, js_msg):
         '''
         Get the measured joint angles and torques
         '''
-        # TODO: check!
         self.joint_angles = js_msg.position.tolist()
         self.joint_torques = js_msg.effort.tolist()
 
