@@ -24,8 +24,8 @@ from edward_interfaces.srv import SetJoints, CSVTraj
 from .params import Slist, Blist, M, total_length
 
 
-LOG = False     # TODO: make this a parameter to the node
-FREQ: int = 100 # TODO: make this a parameter to the node
+LOG = False
+#  FREQ: int = 100
 
 
 class EdwardControl(Node):
@@ -35,25 +35,31 @@ class EdwardControl(Node):
         # declare and get parameters
         self.declare_parameter("robot", "real")
         self.declare_parameter("use_vr", True)
+        self.declare_parameter("rate",100)
         self.USE_VR = self.get_parameter("use_vr").value
         self.ROBOT = self.get_parameter("robot").value
+        freq = self.get_parameter("rate").value
 
         # Create timer
-        _timer = self.create_timer(1/FREQ, self.timer_callback)
+        _timer = self.create_timer(1/freq, self.timer_callback)
 
         # Publishers
         if self.ROBOT == "sim":
-            self.joint_pub = self.create_publisher(JointState,"/joint_states",10)
+            self.joint_pub = self.create_publisher(
+                JointState, "/joint_states", 10)
         self.cmd_state_pub = self.create_publisher(CmdState, "/cmd_state", 10)
 
         # Subscribers
         _joy_sub = self.create_subscription(Joy, "/joy", self.joy_callback, 10)
         if self.ROBOT == "real":
-            _joint_states_sub = self.create_subscription(JointState, "/joint_states", self.joint_states_callback, 10)
+            _joint_states_sub = self.create_subscription(
+                JointState, "/joint_states", self.joint_states_callback, 10)
 
         # Services
-        _csv_traj_srv = self.create_service(CSVTraj, "csv_traj", self.csv_callback)
-        _set_joints_srv = self.create_service(SetJoints, "set_joints", self.set_joints_callback)
+        _csv_traj_srv = self.create_service(
+            CSVTraj, "csv_traj", self.csv_callback)
+        _set_joints_srv = self.create_service(
+            SetJoints, "set_joints", self.set_joints_callback)
         _home_srv = self.create_service(Empty, "home", self.home_callback)
 
         # tf listener and buffer
@@ -63,17 +69,17 @@ class EdwardControl(Node):
         # tf broadcaster
         self.broadcaster = TransformBroadcaster(self)
 
-        self.joint_angles = [0.0, 0.0, 0.0, 0.0, 0.0] # measured angles
-        self.joint_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # measured torques
-        self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded angles
-        self.cmd_torques = [0.0, 0.0, 0.0, 0.0, 0.0] # commanded torques
-        self.hand_state = False # commanded hand state
+        self.joint_angles = [0.0, 0.0, 0.0, 0.0, 0.0]  # measured angles
+        self.joint_torques = [0.0, 0.0, 0.0, 0.0, 0.0]  # measured torques
+        self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0]  # commanded angles
+        self.cmd_torques = [0.0, 0.0, 0.0, 0.0, 0.0]  # commanded torques
+        self.hand_state = False  # commanded hand state
         self.prev_hand_state = 0
 
-        self.i = 0 # index for joint trajectories
-        self.pose_recieved = False # flag for if a goal pose was recieved
+        self.i = 0  # index for joint trajectories
+        self.pose_recieved = False  # flag for if a goal pose was recieved
         self.joint_traj = None # (N,5) ndarray of joint states for each point in trajectory
-        self.Tse = None # EE in the S frame, from FK at each step
+        self.Tse = None  # EE in the S frame, from FK at each step
 
         # True when the trigger is pressed, thus enabling VR tracking
         self.enable_tracking = False
@@ -82,15 +88,12 @@ class EdwardControl(Node):
         self.p0 = np.array([0.0, 0.0, 0.0])
         self.q0 = np.array([0.0, 0.0, 0.0, 1.0])
 
-
     def joint_states_callback(self, js_msg):
         '''
         Get the measured joint angles and torques
         '''
-        # TODO: check!
         self.joint_angles = js_msg.position.tolist()
         self.joint_torques = js_msg.effort.tolist()
-
 
     def joy_callback(self, joy_msg):
         '''
@@ -111,14 +114,12 @@ class EdwardControl(Node):
         else:
             self.hand_state = False
 
-
     def home_callback(self, request, response):
         '''
         Brings the robot back to its home configuration
         '''
         self.cmd_angles = [0.0, 0.0, 0.0, 0.0, 0.0]
         return response
-
 
     def set_joints_callback(self, request, response):
         '''
@@ -134,7 +135,6 @@ class EdwardControl(Node):
         ]
 
         return response
-
 
     def run_IK(self, T_vr, eomg=0.1, ev=0.1):
         '''
@@ -155,13 +155,13 @@ class EdwardControl(Node):
 
         # Solve IK and set the joint angles
         if self.enable_tracking:
-            result = mr.IKinSpace(Slist, M, T_vr, self.joint_angles, eomg=eomg, ev=ev)
+            result = mr.IKinSpace(
+                Slist, M, T_vr, self.joint_angles, eomg=eomg, ev=ev)
             if result[1]:
                 self.cmd_angles = list(result[0])
-                self.cmd_angles[1] = -self.cmd_angles[1] # TODO: why??
+                self.cmd_angles[1] = -self.cmd_angles[1]  # TODO: why??
             else:
                 self.get_logger().warn(f"IK failed to converge")
-
 
     def csv_callback(self, request, response):
         '''
@@ -170,20 +170,20 @@ class EdwardControl(Node):
 
         self.pose_recieved = True
         csv_path = request.csv_path
-        self.joint_traj = np.loadtxt(csv_path,delimiter=",")
+        self.joint_traj = np.loadtxt(csv_path, delimiter=",")
         return response
-
 
     def timer_callback(self):
 
-        if self.ROBOT == "sim":
+        #  if self.ROBOT == "sim" or self.ROBOT == "real":
             # if just simulating, set the sensed joint states equal to the commanded ones
-            self.joint_angles = self.cmd_angles
+        self.joint_angles = self.cmd_angles
 
         if self.USE_VR:
             try:
                 # lookup the transform between world and controller_1
-                t = self.tf_buffer.lookup_transform("world", "controller_1",rclpy.time.Time())
+                t = self.tf_buffer.lookup_transform(
+                    "world", "controller_1", rclpy.time.Time())
 
                 # Get the current rotation(quaternion) and position vector
                 q = np.array([
@@ -192,12 +192,13 @@ class EdwardControl(Node):
                     t.transform.rotation.z,
                     t.transform.rotation.w
                 ])
-                p = np.array([t.transform.translation.x, t.transform.translation.y, t.transform.translation.z])
+                p = np.array(
+                    [t.transform.translation.x, t.transform.translation.y, t.transform.translation.z])
 
                 # set the zero to the current tf if the button is clicked
                 if self.zero:
 
-                    #TODO probably just do this:
+                    # TODO probably just do this:
                     #  self.q0 = q.copy()
                     #  self.p0 = p.copy()
 
@@ -217,14 +218,15 @@ class EdwardControl(Node):
                 p_diff = p - self.p0
                 q_euler = Rotation.from_quat(q).as_euler("xyz")
                 q0_euler = Rotation.from_quat(self.q0).as_euler("xyz")
-                if not np.allclose(q_euler,q0_euler): # maybe can remove
+                if not np.allclose(q_euler, q0_euler):  # maybe can remove
                     q_diff_euler = q_euler - q0_euler
                     q_diff = Rotation.from_euler("xyz", q_diff_euler).as_quat()
                 else:
                     q_diff = self.q0
 
                 # Get transformation from base_link to VR controller
-                T_BL_VR = mr.RpToTrans(Rotation.from_quat(q_diff).as_matrix(), p_diff)
+                T_BL_VR = mr.RpToTrans(
+                    Rotation.from_quat(q_diff).as_matrix(), p_diff)
 
                 # broadcast a TF between the base_link and the zero'd "controller_delta" frame
                 self.current_time = self.get_clock().now()
@@ -245,16 +247,17 @@ class EdwardControl(Node):
                 self.run_IK(T_BL_VR)
 
             except TransformException as ex:
-                self.get_logger().warn(f'Could not transform "world" to "controller_1": {ex}')
+                self.get_logger().warn(
+                    f'Could not transform "world" to "controller_1": {ex}')
 
         #  update joint angles at each step if pose recieved from CSVTraj services
         if self.pose_recieved:
             self.cmd_angles = [
-                self.joint_traj[self.i,0],
-                self.joint_traj[self.i,1],
-                self.joint_traj[self.i,2],
-                self.joint_traj[self.i,3],
-                self.joint_traj[self.i,4],
+                self.joint_traj[self.i, 0],
+                self.joint_traj[self.i, 1],
+                self.joint_traj[self.i, 2],
+                self.joint_traj[self.i, 3],
+                self.joint_traj[self.i, 4],
             ]
             self.i += 1
 
@@ -262,27 +265,23 @@ class EdwardControl(Node):
                 self.i = 0
                 self.pose_recieved = False
 
-
         # construct and publish a JointState message if just simulating
         if self.ROBOT == "sim":
             js_msg = JointState()
             js_msg.header.stamp = self.get_clock().now().to_msg()
-            js_msg.name = ["joint1","joint2","joint3","joint4","joint5"]
+            js_msg.name = ["joint1", "joint2", "joint3", "joint4", "joint5"]
             js_msg.position = self.joint_angles
             self.joint_pub.publish(js_msg)
 
         # publish the commanded anlges and torques on /cmd_state
         cmd_state_msg = CmdState()
         cmd_state_msg.angles = self.cmd_angles
-        cmd_state_msg.torques =self.cmd_torques
+        cmd_state_msg.torques = self.cmd_torques
         cmd_state_msg.hand = bool(self.hand_state)
         self.cmd_state_pub.publish(cmd_state_msg)
 
         # Get the current end effector pose
         self.Tse = mr.FKinSpace(M, Slist, self.joint_angles)
-
-
-
 
 
 def main(args=None):
@@ -297,5 +296,3 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
-
-
