@@ -21,7 +21,7 @@ from geometry_msgs.msg import TransformStamped, PoseStamped
 from std_srvs.srv import Empty
 from edward_interfaces.srv import SetJoints, CSVTraj
 
-from .params import Slist, Blist, M, total_length
+from edward_control.kinematic_params import Slist, Blist, M, total_length
 
 
 LOG = False     # TODO: make this a parameter to the node

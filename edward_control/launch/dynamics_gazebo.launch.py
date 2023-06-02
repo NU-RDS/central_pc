@@ -15,12 +15,12 @@ def generate_launch_description():
     urdf = Command([TextSubstitution(text="xacro "), xacro_urdf_path])
 
     ld = LaunchDescription([
-        
+
         # start gazebo with the world SDF file
         ExecuteProcess(
             cmd = ["ign", "gazebo", world_path]
         ),
-    
+
         # load the URDF model into gazebo
         Node(
             package = "ros_gz_sim",
