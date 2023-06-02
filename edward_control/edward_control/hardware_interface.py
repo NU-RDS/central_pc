@@ -9,7 +9,7 @@ Subscribes:
 Publishes:
     /joint_states: measured joint angles and torques
 '''
-
+import math
 import rclpy
 from rclpy.node import Node
 import numpy as np
@@ -23,6 +23,12 @@ from sensor_msgs.msg import JointState
 
 from edward_interfaces.msg import CmdState
 
+def wrap_angle(angle):
+    while angle < -math.pi:
+        angle += 2 * math.pi
+    while angle >= math.pi:
+        angle -= 2 * math.pi
+    return angle
 
 class HardwareInterface(Node):
     def __init__(self):
@@ -88,6 +94,8 @@ class HardwareInterface(Node):
         torques = cmd_state_msg.torques.tolist()
         hand_state = cmd_state_msg.hand
 
+        angles = [wrap_angle(i) for i in angles]
+
         main_angle_cmd_msg = self.db.get_message_by_name("Main_Angle_Command")
         main_torque_offset_msg = self.db.get_message_by_name(
             "Main_Torque_Offset")
@@ -133,7 +141,7 @@ class HardwareInterface(Node):
         pass
         #  js_msg = JointState()
         #  js_msg.header.stamp = self.get_clock().now().to_msg()
-        #  js_msg.name = ["joint1", "joint2", "joint3", "joint4", "joint5"]
+        #  js_msg.name = ["joint1","joint2","joint3","joint4","joint5"]
         #  js_msg.position = self.joint_angles
         #  self.joint_pub.publish(js_msg)
 

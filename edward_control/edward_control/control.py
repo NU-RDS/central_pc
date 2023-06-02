@@ -44,16 +44,15 @@ class EdwardControl(Node):
         _timer = self.create_timer(1/freq, self.timer_callback)
 
         # Publishers
-        if self.ROBOT == "sim":
-            self.joint_pub = self.create_publisher(
-                JointState, "/joint_states", 10)
+        #  if self.ROBOT == "sim":
+        self.joint_pub = self.create_publisher(JointState,"/joint_states",10)
         self.cmd_state_pub = self.create_publisher(CmdState, "/cmd_state", 10)
 
         # Subscribers
         _joy_sub = self.create_subscription(Joy, "/joy", self.joy_callback, 10)
-        if self.ROBOT == "real":
-            _joint_states_sub = self.create_subscription(
-                JointState, "/joint_states", self.joint_states_callback, 10)
+
+        #  if self.ROBOT == "real":
+        _joint_states_sub = self.create_subscription(JointState, "/joint_states", self.joint_states_callback, 10)
 
         # Services
         _csv_traj_srv = self.create_service(
@@ -136,7 +135,8 @@ class EdwardControl(Node):
 
         return response
 
-    def run_IK(self, T_vr, eomg=0.1, ev=0.1):
+
+    def run_IK(self, T_vr, eomg=0.15, ev=0.15):
         '''
         Runs inverse kinematics from the current measured EE state
         self.Tse to the goal state T_vr and sets the joint_states
@@ -175,7 +175,7 @@ class EdwardControl(Node):
 
     def timer_callback(self):
 
-        #  if self.ROBOT == "sim" or self.ROBOT == "real":
+        #  if self.ROBOT == "sim":
             # if just simulating, set the sensed joint states equal to the commanded ones
         self.joint_angles = self.cmd_angles
 
@@ -266,12 +266,12 @@ class EdwardControl(Node):
                 self.pose_recieved = False
 
         # construct and publish a JointState message if just simulating
-        if self.ROBOT == "sim":
-            js_msg = JointState()
-            js_msg.header.stamp = self.get_clock().now().to_msg()
-            js_msg.name = ["joint1", "joint2", "joint3", "joint4", "joint5"]
-            js_msg.position = self.joint_angles
-            self.joint_pub.publish(js_msg)
+        #  if self.ROBOT == "sim":
+        js_msg = JointState()
+        js_msg.header.stamp = self.get_clock().now().to_msg()
+        js_msg.name = ["joint1","joint2","joint3","joint4","joint5"]
+        js_msg.position = self.joint_angles
+        self.joint_pub.publish(js_msg)
 
         # publish the commanded anlges and torques on /cmd_state
         cmd_state_msg = CmdState()
