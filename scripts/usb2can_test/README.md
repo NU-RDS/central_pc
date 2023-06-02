@@ -1,5 +1,7 @@
-# Testing USB2CAN
-*Only tested on Linux*
+# USB2CAN
+These scripts demonstrate how to command 
+joint angles and torques on the CAN bus directly
+without using ROS
 
 ```
 # to initialize CAN0
