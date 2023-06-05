@@ -1,10 +1,15 @@
 # USB2CAN
 These scripts demonstrate how to command 
 joint angles and torques on the CAN bus directly
-without using ROS
+without using ROS.
 
+**Note:** if you see "Transmit buffer overflow" when attempting
+to use this code, most likely your CAN bus is not connected
+properly and you should check the wiring.
+
+Example usage:
 ```
-# to initialize CAN0
+# initialize CAN0
 sudo bash can_bringup.sh 
 
 # Command angles to 45,0,0,0,0

@@ -6,7 +6,6 @@ import time
 import numpy as np
 import sys
 
-
 try:
     db = cantools.database.load_file('./full_bus.dbc')
     main_angle_cmd_msg = db.get_message_by_name("Main_Angle_Command")
@@ -19,6 +18,7 @@ except:
 # Get commanded angles from comma separated cmd line args
 angles_rad = [float(i)*np.pi/180.0 for i in sys.argv[1].split(",")]
 
+# Send angles as specified by command line arguments
 main_angle_cmd_data = main_angle_cmd_msg.encode({
     "Angle_Command_0": angles_rad[0],
     "Angle_Command_1": angles_rad[1],
@@ -28,6 +28,7 @@ main_angle_cmd_data = main_angle_cmd_msg.encode({
     "User_Command": "Go"
 })
 
+# send all zero torques
 main_torque_msg_data = main_torque_offset_msg.encode({
     "Main_Torque_Offset_CMD_0" : 0.0,
     "Main_Torque_Offset_CMD_1" : 0.0,
